@@ -35,8 +35,7 @@ const verifyJWT = (req, res, next) => {
       }
     });
   } else {
-    console.log(req.cookies.accesstoken);
-    throw new Error("last line error");
+    next(); // No token — unauthenticated request, let route handler decide
   }
 };
 

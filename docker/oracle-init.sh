@@ -40,7 +40,7 @@ END;
 /
 
 -- Create the BIIS schema user
-CREATE USER BIIS IDENTIFIED BY "${APP_USER_PASSWORD}"
+CREATE USER BIIS IDENTIFIED BY "${BIIS_DB_PASS}"
   DEFAULT TABLESPACE USERS
   TEMPORARY TABLESPACE TEMP
   QUOTA UNLIMITED ON USERS;
@@ -61,29 +61,86 @@ echo ">>> [BIIS Init] BIIS user created successfully."
 
 # ── Step 2: Run schema (DDL) ─────────────────────────────────────────────────
 echo ">>> [BIIS Init] Running BIIS_STRUCTURE.sql (DDL)..."
-sqlplus -s "BIIS/${APP_USER_PASSWORD}@//localhost/FREEPDB1" <<EOF
+sqlplus -s "BIIS/${BIIS_DB_PASS}@//localhost/FREEPDB1" <<EOF
 SET ECHO OFF
 SET FEEDBACK OFF
 SET DEFINE OFF
 WHENEVER SQLERROR CONTINUE
-@/docker-entrypoint-initdb.d/sql/BIIS_STRUCTURE.sql
+@/opt/biis/sql/BIIS_STRUCTURE.sql
 COMMIT;
 EXIT;
 EOF
 
 echo ">>> [BIIS Init] Schema created."
 
-# ── Step 3: Run seed data (DML) ──────────────────────────────────────────────
-echo ">>> [BIIS Init] Running BIIS_DATA.sql (seed data — this may take a minute)..."
-sqlplus -s "BIIS/${APP_USER_PASSWORD}@//localhost/FREEPDB1" <<EOF
+# ── Step 3: Seed data — run individual table files in dependency order ─────────
+# BIIS_DATA.sql is a Navicat DDL dump (DROP+CREATE), NOT a data file.
+# The real INSERT data lives in the individual per-table .sql files.
+run_seed() {
+  local file="$1"
+  echo ">>> [BIIS Init]   Seeding: $(basename $file)..."
+  sqlplus -s "BIIS/${BIIS_DB_PASS}@//localhost/FREEPDB1" <<EOF
 SET ECHO OFF
 SET FEEDBACK OFF
 SET DEFINE OFF
 WHENEVER SQLERROR CONTINUE
-@/docker-entrypoint-initdb.d/sql/BIIS_DATA.sql
+@${file}
 COMMIT;
 EXIT;
 EOF
+}
 
-echo ">>> [BIIS Init] Seed data loaded."
-echo ">>> [BIIS Init] ✅ Database initialization complete!"
+echo ">>> [BIIS Init] Seeding tables..."
+# Disable all triggers first — audit triggers (LOG_STUDENT, LOG_TEACHER, etc.)
+# build a VARCHAR2(255) DETAILS string by concatenating all row fields, which
+# overflows on real data and aborts every INSERT. Re-enable after seeding.
+sqlplus -s "BIIS/${BIIS_DB_PASS}@//localhost/FREEPDB1" <<EOF
+SET ECHO OFF
+SET FEEDBACK OFF
+BEGIN
+  FOR t IN (SELECT trigger_name FROM user_triggers) LOOP
+    EXECUTE IMMEDIATE 'ALTER TRIGGER "' || t.trigger_name || '" DISABLE';
+  END LOOP;
+END;
+/
+COMMIT;
+EXIT;
+EOF
+echo ">>> [BIIS Init] Triggers disabled for bulk load."
+
+# Order matters: parent tables before child tables
+# USER_TABLE must come before STUDENT and TEACHER (FK: STUDENT_ID/TEACHER_ID → USER_TABLE.USER_ID)
+run_seed /opt/biis/sql/DEPARTMENT.sql
+run_seed /opt/biis/sql/DUES.sql
+run_seed /opt/biis/sql/SCHOLARSHIP.sql
+run_seed /opt/biis/sql/USER_TABLE.sql
+run_seed /opt/biis/sql/STUDENT.sql
+run_seed /opt/biis/sql/TEACHER.sql
+run_seed /opt/biis/sql/COURSE.sql
+run_seed /opt/biis/sql/ADVISOR.sql
+run_seed /opt/biis/sql/ENROLLMENT.sql
+run_seed /opt/biis/sql/REGISTRATION.sql
+run_seed /opt/biis/sql/RESULT.sql
+run_seed /opt/biis/sql/TEACHES.sql
+run_seed /opt/biis/sql/NOTIFICATION.sql
+run_seed /opt/biis/sql/STUDENT_DUES.sql
+run_seed /opt/biis/sql/STUDENT_SCHOLARSHIP.sql
+run_seed /opt/biis/sql/ADMIN_LOGS.sql
+
+# Re-enable all triggers
+sqlplus -s "BIIS/${BIIS_DB_PASS}@//localhost/FREEPDB1" <<EOF
+SET ECHO OFF
+SET FEEDBACK OFF
+BEGIN
+  FOR t IN (SELECT trigger_name FROM user_triggers) LOOP
+    EXECUTE IMMEDIATE 'ALTER TRIGGER "' || t.trigger_name || '" ENABLE';
+  END LOOP;
+END;
+/
+COMMIT;
+EXIT;
+EOF
+echo ">>> [BIIS Init] Triggers re-enabled."
+
+echo ">>> [BIIS Init] ✅ All tables seeded. Initialization complete!"
+

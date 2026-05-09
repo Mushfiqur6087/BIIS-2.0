@@ -1,6 +1,6 @@
 const database = require("./database");
+
 async function totalStudentDepartMent() {
-  //await database.startup();
   const sql = `
   SELECT
     d.DEPARTMENT_NAME,
@@ -8,41 +8,41 @@ async function totalStudentDepartMent() {
     (SELECT COUNT(DISTINCT t.TEACHER_ID) FROM TEACHER t WHERE t.DEPT_ID = d.DEPARTMENT_ID) AS TOTAL_TEACHERS
 FROM
     DEPARTMENT d
-            `;
-  const binds = {};
-
- // console.log(( await database.execute(sql, binds)).rows);
- return (await database.execute(sql,binds)).rows
-
+  `;
+  try {
+    const result = await database.execute(sql, {});
+    return result ? result.rows : [];
+  } catch (err) {
+    console.error('ERROR in totalStudentDepartMent:', err.message);
+    return [];
+  }
 }
 
 async function totalStudentCourse() {
-  //await database.startup();
+  // Inline max_enrollment instead of calling CHECK_MAX_ENROLLMENT (function is in invalid state)
   const sql = `
   SELECT
-  DEPARTMENT.DEPARTMENT_NAME,
-  COURSE.COURSE_ID,
-  CHECK_MAX_ENROLLMENT(COURSE.COURSE_ID) as max_enrollment,
-  (SELECT COUNT(*) FROM ENROLLMENT WHERE ENROLLMENT.COURSE_ID = COURSE.COURSE_ID) as current_enrollment,
-  (SELECT COUNT(*) FROM TEACHES WHERE TEACHES.COURSE_ID = COURSE.COURSE_ID) as total_teachers
-FROM
-  COURSE
-JOIN
-  DEPARTMENT ON DEPARTMENT.DEPARTMENT_ID = COURSE.DEPT_ID
-            `;
-  const binds = {};
-
-  //console.log(( await database.execute(sql, binds)).rows);
- return (await database.execute(sql,binds)).rows
-
+    DEPARTMENT.DEPARTMENT_NAME,
+    COURSE.COURSE_ID,
+    (SELECT COUNT(*) FROM STUDENT
+     WHERE STUDENT."LEVEL" = COURSE."LEVEL"
+       AND STUDENT.TERM   = COURSE.TERM
+       AND STUDENT.DEPT_ID = COURSE.DEPT_ID) AS max_enrollment,
+    (SELECT COUNT(*) FROM ENROLLMENT WHERE ENROLLMENT.COURSE_ID = COURSE.COURSE_ID) AS current_enrollment,
+    (SELECT COUNT(*) FROM TEACHES WHERE TEACHES.COURSE_ID = COURSE.COURSE_ID) AS total_teachers
+  FROM COURSE
+  JOIN DEPARTMENT ON DEPARTMENT.DEPARTMENT_ID = COURSE.DEPT_ID
+  `;
+  try {
+    const result = await database.execute(sql, {});
+    return result ? result.rows : [];
+  } catch (err) {
+    console.error('ERROR in totalStudentCourse:', err.message);
+    return [];
+  }
 }
 
+module.exports = { totalStudentDepartMent, totalStudentCourse }
 
-//totalStudentCourse();
-
-
-
-//totalStudentDepartMent();
-module.exports={totalStudentDepartMent,totalStudentCourse}
 
 

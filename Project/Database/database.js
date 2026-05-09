@@ -73,7 +73,7 @@ async function execute(sql, binds, connection = null) {
       ErrorMsg.showError = true;
       ErrorMsg.errorMessage = err.message;
       console.log('ERROR executing SQL: ' + err.message);
-      //throw err;
+      return { rows: [] }; // safe fallback — prevents .rows TypeError on callers
     } finally {
       if (newConnection) {
         try {
@@ -96,6 +96,7 @@ async function execute(sql, binds, connection = null) {
       ErrorMsg.showError = true;
       ErrorMsg.errorMessage = err.message;
       console.log('ERROR executing SQL within transaction: ' + err.message);
+      return { rows: [] }; // safe fallback
     }
   }
 }

@@ -1,0 +1,76 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# BIIS 2.0 — Docker Compose
+#
+# Services:
+#   oracle  — Oracle Database Free 23ai (gvenzl/oracle-free)
+#   app     — Node.js / Express application
+#
+# First-run behavior:
+#   The oracle service detects an empty data volume and runs:
+#     docker/oracle-init.sh  → creates BIIS user + loads SQL schema + seed data
+#   Subsequent starts skip init and boot in ~15 seconds.
+#
+# Usage:
+#   cp .env.example .env        # fill in your secrets
+#   docker compose up --build
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Oracle Database ──────────────────────────────────────────────────────
+  oracle:
+    image: gvenzl/oracle-free:23-slim
+    container_name: biis-oracle
+    restart: unless-stopped
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_SYS_PASSWORD:-SysOracle#2024}
+      APP_USER_PASSWORD: ${DB_PASS:-BiisPass#2024}
+    ports:
+      - "1521:1521"         # expose for local SQL clients (optional)
+    volumes:
+      # Persist DB data across container restarts
+      - oracle_data:/opt/oracle/oradata
+      # Init scripts — only run on very first startup (empty volume)
+      - ./docker/oracle-init.sh:/container-entrypoint-initdb.d/oracle-init.sh:ro
+      - ./Project/ProjectEssentials/Database/BIIS_STRUCTURE.sql:/docker-entrypoint-initdb.d/sql/BIIS_STRUCTURE.sql:ro
+      - ./Project/ProjectEssentials/Database/BIIS_DATA.sql:/docker-entrypoint-initdb.d/sql/BIIS_DATA.sql:ro
+    healthcheck:
+      # gvenzl images ship with a built-in healthcheck.sh
+      test: ["CMD", "healthcheck.sh"]
+      interval: 30s
+      timeout: 20s
+      retries: 25          # Oracle Free can take up to ~3 min on first boot
+      start_period: 90s
+
+  # ── Node.js Application ───────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: biis-app
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3000
+      # DB credentials — must match what oracle-init.sh created
+      DB_USER: BIIS
+      DB_PASS: ${DB_PASS:-BiisPass#2024}
+      # oracledb Thin mode Easy Connect string
+      DB_CONNECTION: oracle:1521/FREEPDB1
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required — set it in .env}
+    depends_on:
+      oracle:
+        condition: service_healthy   # waits until Oracle passes its health check
+    volumes:
+      # Persist uploaded images and generated PDFs
+      - ./Project/public/img:/app/public/img
+      - ./Project/docs:/app/docs
+      - ./Project/logs:/app/logs
+      # Make CSV upload directory accessible
+      - ./Project/ProjectEssentials/CSV:/app/ProjectEssentials/CSV
+
+volumes:
+  oracle_data:
+    name: biis_oracle_data

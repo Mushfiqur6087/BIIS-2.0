@@ -3,3 +3,10 @@ Project/node_modules/
 Project/.env
 Project/logs/errLog.txt
 Project/logs/reqLog.txt
+
+# Docker / environment secrets
+.env
+!.env.example
+
+# Docker runtime
+docker/oracle-init-done

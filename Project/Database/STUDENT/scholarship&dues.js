@@ -1,63 +1,56 @@
 const database = require("../database");
 
 async function getScholarshipInformaton() {
-  const sql = `
-          SELECT *
-          FROM 
-              SCHOLARSHIP
-              `;
-  const binds = {};
-
-  return (await database.execute(sql, binds)).rows;
-}
-async function getScholarshipStatus(id) 
-{
-    await database.startup();
-    const sql = `
-            SELECT STATUS
-            FROM 
-                STUDENT_SCHOLARSHIP WHERE STUDENT_ID= :id
-                `;
-    const binds = {id};
-  
-    return( ( (await database.execute(sql, binds)).rows));
+  try {
+    return (await database.execute(`SELECT * FROM SCHOLARSHIP`, {})).rows;
+  } catch (err) {
+    console.error('ERROR in getScholarshipInformaton:', err.message);
+    return [];
   }
+}
 
+async function getScholarshipStatus(id) {
+  try {
+    // Removed spurious database.startup() call — pool is already created at app boot
+    return (await database.execute(
+      `SELECT STATUS FROM STUDENT_SCHOLARSHIP WHERE STUDENT_ID=:id`, { id }
+    )).rows;
+  } catch (err) {
+    console.error('ERROR in getScholarshipStatus:', err.message);
+    return [];
+  }
+}
 
 async function addStudentScholarshipApplication(id, sid) {
-    //await database.startup();
-    const sql = `SELECT * FROM ADVISOR WHERE S_ID =: id
-                `;
-    const binds = {id};
-  
-    const a= (await database.execute(sql, binds)).rows;
-
-    const aID=a[0].I_ID;
-    const t='waiting for approval'
-    const binds2={id,sid,aID,t}
-    const sql2=`INSERT INTO STUDENT_SCHOLARSHIP(STUDENT_ID,SCHOLARSHIP_ID,STATUS,TEACHER_ID) VALUES (:id,:sid,:t,:aID)`
-    return (await database.execute(sql2, binds2)).rows;
-
-
+  try {
+    const a = (await database.execute(
+      `SELECT * FROM ADVISOR WHERE S_ID=:id`, { id }
+    )).rows;
+    if (!a || !a[0]) throw new Error(`No advisor found for student ${id}`);
+    const aID = a[0].I_ID;
+    const t   = 'waiting for approval';
+    return (await database.execute(
+      `INSERT INTO STUDENT_SCHOLARSHIP(STUDENT_ID,SCHOLARSHIP_ID,STATUS,TEACHER_ID) VALUES(:id,:sid,:t,:aID)`,
+      { id, sid, aID, t }
+    )).rows;
+  } catch (err) {
+    console.error('ERROR in addStudentScholarshipApplication:', err.message);
+    return [];
   }
+}
 
-
-  async function getStudentDues(id) {
-    await database.startup();
-    const sql = `SELECT * FROM DUES JOIN STUDENT_DUES ON DUES.DUE_ID= STUDENT_DUES.DUES_ID WHERE STUDENT_ID =:id AND STATUS =:st
-                `;
-    const st='Not Cleared'
-    const binds = {id,st};
-    return ( (await database.execute(sql, binds)).rows);
-
-
+async function getStudentDues(id) {
+  try {
+    // Removed spurious database.startup() call
+    const st = 'Not Cleared';
+    return (await database.execute(
+      `SELECT * FROM DUES JOIN STUDENT_DUES ON DUES.DUE_ID=STUDENT_DUES.DUES_ID
+       WHERE STUDENT_ID=:id AND STATUS=:st`, { id, st }
+    )).rows;
+  } catch (err) {
+    console.error('ERROR in getStudentDues:', err.message);
+    return [];
   }
+}
 
-  //getStudentDues(4401)
-
-
-
- //// addStudentScholarshipApplication(4401,1);
-
-module.exports={getScholarshipInformaton,addStudentScholarshipApplication,
-  getScholarshipStatus,getStudentDues};
+module.exports = { getScholarshipInformaton, addStudentScholarshipApplication, getScholarshipStatus, getStudentDues };

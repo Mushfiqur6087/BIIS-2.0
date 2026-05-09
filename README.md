@@ -1,6 +1,6 @@
 # BIIS 2.0 — BUET Institutional Information System
 
-> A centralized academic management platform for administrators, faculty, students, and parents at Bangladesh University of Engineering and Technology (BUET).
+> A centralized academic management platform for administrators, faculty, and students at Bangladesh University of Engineering and Technology (BUET).
 
 ---
 
@@ -34,7 +34,7 @@
 - Approve/reject student course registrations
 - Input and update student grades/GPA
 - Approve scholarship applications
-- Receive real-time notifications (new applications)
+- Receive real-time notifications
 - Update personal profile
 
 ### 🛠️ Admin Panel
@@ -51,7 +51,7 @@
 ### 📡 Real-Time Notifications (Socket.IO)
 - Live push notifications to Admin, Teacher, and Student dashboards
 - Polling every 5 seconds for new notification events
-- Role-aware delivery — notifications are routed to the correct user
+- Role-aware delivery
 
 ---
 
@@ -59,18 +59,99 @@
 
 | Layer | Technology |
 |---|---|
-| **Runtime** | Node.js |
+| **Runtime** | Node.js 18 |
 | **Framework** | Express.js |
-| **Templating** | EJS (Embedded JavaScript) |
-| **Database** | Oracle Database (via `oracledb`) |
-| **Authentication** | JWT (`jsonwebtoken`) + `bcrypt` |
+| **Templating** | EJS |
+| **Database** | Oracle Database Free 23ai (Docker) |
+| **ORM/Driver** | `oracledb` (Thin mode — no Instant Client needed) |
+| **Authentication** | JWT + `bcrypt` |
 | **Real-Time** | Socket.IO |
 | **File Upload** | Multer (CSV import) |
 | **PDF Generation** | pdf-lib |
-| **Session Cookies** | cookie-parser |
-| **Logging** | Custom middleware (Morgan-style) |
-| **Environment** | dotenv |
-| **Dev Server** | Nodemon |
+| **Containerization** | Docker + Docker Compose |
+
+---
+
+## 🐳 Running with Docker (Recommended)
+
+### Prerequisites
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/install/) v2+
+
+That's it — **no Oracle client, no Node.js, no manual DB setup required.**
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/Mushfiqur6087/BIIS-2.0.git
+cd BIIS-2.0
+```
+
+### 2. Create the environment file
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set your `JWT_SECRET` (everything else has working defaults):
+
+```env
+ORACLE_SYS_PASSWORD=SysOracle#2024
+DB_PASS=BiisPass#2024
+JWT_SECRET=change-this-to-a-long-random-secret
+PORT=3000
+NODE_ENV=production
+```
+
+### 3. Start everything
+```bash
+docker compose up --build
+```
+
+On **first run**, Docker will:
+1. Pull the Oracle Free 23ai image
+2. Decompress and initialize the database (~2–3 minutes)
+3. Create the `BIIS` schema user
+4. Run all DDL (tables, triggers, procedures)
+5. Seed **1,314 users**, **1,102 students**, **163 teachers**, **331 courses**, and more
+6. Start the Node.js app
+
+> ⏳ First boot takes 3–5 minutes. Subsequent starts take ~30 seconds.
+
+### 4. Open the app
+```
+http://localhost:3000
+```
+
+Login with any credential from [`CREDENTIALS.md`](./CREDENTIALS.md). Quick reference:
+
+| Role    | User ID | Password   |
+|---------|---------|------------|
+| Admin   | `2000`  | `12345678` |
+| Teacher | `8000`  | `12345678` |
+| Student | `4000`  | `12345678` |
+
+---
+
+## 🔧 Docker Commands Reference
+
+```bash
+# Start (data is preserved between restarts)
+docker compose up --build
+
+# Stop without losing data
+docker compose down
+
+# Stop AND wipe all database data (full fresh init on next start)
+docker compose down -v
+
+# View live logs
+docker compose logs -f
+
+# View only app logs
+docker compose logs -f app
+
+# Access Oracle SQL directly
+docker exec -it biis-oracle sqlplus BIIS/BiisPass#2024@//localhost/FREEPDB1
+```
 
 ---
 
@@ -78,159 +159,92 @@
 
 ```
 BIIS-2.0/
+├── docker-compose.yml              # Service definitions (Oracle + App)
+├── Dockerfile                      # Node.js app container
+├── docker/
+│   └── oracle-init.sh              # DB init script (runs once on first boot)
+├── .env.example                    # Environment variable template
+├── CREDENTIALS.md                  # Login credentials reference
 ├── Project/
 │   ├── server.js                   # Entry point — Express app + Socket.IO
 │   ├── package.json
-│   ├── config/                     # App configuration
+│   ├── config/
 │   ├── middleware/
 │   │   ├── verifyJWT.js            # JWT authentication guard
 │   │   ├── logEvents.js            # Request logger
-│   │   └── errorHandler.js         # Global error handler
+│   │   └── errorHandler.js
 │   ├── routes/
 │   │   ├── authorization.js        # Login route
 │   │   ├── logout.js
-│   │   ├── admin.js                # Admin route aggregator
-│   │   ├── student.js              # Student route aggregator
-│   │   ├── teacher.js              # Teacher route aggregator
-│   │   ├── Admin/                  # Granular admin sub-routes
-│   │   ├── Student/                # Granular student sub-routes
-│   │   └── Teacher/                # Granular teacher sub-routes
-│   ├── controllers/
-│   │   └── loginController.js
+│   │   ├── admin.js
+│   │   ├── student.js
+│   │   ├── teacher.js
+│   │   ├── Admin/
+│   │   ├── Student/
+│   │   └── Teacher/
 │   ├── Database/
 │   │   ├── database.js             # OracleDB connection pool
-│   │   ├── notificationUpdate.js   # Notification polling queries
-│   │   ├── STUDENT/                # Student-specific query modules
-│   │   └── TEACHER/                # Teacher-specific query modules
-│   ├── views/                      # EJS templates (36 pages)
+│   │   ├── STUDENT/                # Student query modules
+│   │   └── TEACHER/                # Teacher query modules
+│   ├── views/                      # EJS templates
 │   ├── public/
 │   │   ├── css/style.css
-│   │   ├── img/
-│   │   └── SocketIO-Script*.js     # Client-side Socket.IO handlers
-│   ├── logs/                       # Request log files
+│   │   └── img/
 │   └── ProjectEssentials/
-│       ├── Database/               # SQL schema + seed data (18 tables)
+│       ├── Database/               # SQL schema + per-table seed files
 │       └── CSV/                    # Sample CSV import files
 └── README.md
 ```
 
 ---
 
-## 🗄️ Database Schema Highlights
+## 🗄️ Database Schema
 
-The Oracle database contains **18 tables**, including:
+The Oracle schema contains **18 tables**:
 
 | Table | Description |
 |---|---|
+| `USER_TABLE` | Login credentials (bcrypt hashed) |
 | `STUDENT` | Student personal & academic records |
 | `TEACHER` | Faculty profiles |
-| `COURSE` | Course catalog |
-| `ENROLLMENT` | Student-course registration |
+| `DEPARTMENT` | 8 departments (CSE, EEE, BME, ME, CE, IPE, WRE, URP) |
+| `COURSE` | 331 courses across all departments |
+| `ENROLLMENT` | Student–course registrations |
 | `RESULT` | Grades and GPA records |
 | `SCHOLARSHIP` | Scholarship programs |
 | `STUDENT_SCHOLARSHIP` | Scholarship applications |
 | `DUES` | Fee definitions |
 | `STUDENT_DUES` | Per-student due tracking |
-| `ADVISOR` | Student-advisor assignments |
-| `TEACHES` | Teacher-course assignments |
+| `ADVISOR` | Student–advisor assignments |
+| `TEACHES` | Teacher–course assignments |
 | `NOTIFICATION` | System notification log |
 | `REGISTRATION` | Semester registration status |
-| `USER_TABLE` | Login credentials (hashed) |
 | `ADMIN_LOGS` | Admin action audit trail |
-| `DEPARTMENT` | Department catalog |
-
-Full SQL schema and seed data available in `Project/ProjectEssentials/Database/`.
 
 ---
 
-## ⚙️ Setup & Installation
+## 🔮 Roadmap
 
-### Prerequisites
-- **Node.js** v18+
-- **Oracle Database** (local or remote instance)
-- **Oracle Instant Client** (required by `oracledb`)
-
-### 1. Clone the repository
-```bash
-git clone https://github.com/your-username/BIIS-2.0.git
-cd BIIS-2.0/Project
-```
-
-### 2. Install dependencies
-```bash
-npm install
-```
-
-### 3. Configure environment variables
-
-Create a `.env` file inside the `Project/` directory:
-
-```env
-DB_USER="your_oracle_username"
-DB_PASS="your_oracle_password"
-DB_CONNECTION="your_oracle_connection_string"
-PORT=3000
-JWT_SECRET="your_super_secret_jwt_key"
-```
-
-### 4. Set up the database
-
-Run the SQL scripts in the following order using SQL*Plus or Oracle SQL Developer:
-
-```bash
-# 1. Create schema (tables, constraints, sequences)
-BIIS_STRUCTURE.sql
-
-# 2. Seed all data
-BIIS_DATA.sql
-```
-
-All SQL files are located in `Project/ProjectEssentials/Database/`.
-
-### 5. Start the server
-
-```bash
-# Development (with auto-reload)
-npm run dev
-
-# Production
-npm start
-```
-
-The app will be available at `http://localhost:<PORT>`.
-
----
-
-## 🔮 Planned Modernization (Roadmap)
-
-The following improvements are planned for the next phase of development:
-
-### UI/UX Overhaul
-- [ ] Replace EJS templates with a modern **React** or **Next.js** frontend
-- [ ] Implement a component design system with **Tailwind CSS** or **shadcn/ui**
-- [ ] Add dark mode support
-- [ ] Responsive mobile-first layouts for all dashboards
-- [ ] Animated transitions and micro-interactions
-
-### Backend Improvements
-- [ ] Migrate to **PostgreSQL** or **MySQL** for broader accessibility
-- [ ] Add **REST API** layer with Swagger/OpenAPI documentation
-- [ ] Implement **refresh tokens** and proper token rotation
-- [ ] Add **rate limiting** and security hardening (Helmet.js)
-- [ ] Structured logging with **Winston** or **Pino**
-
-### New Features
-- [ ] Email notifications (nodemailer integration)
-- [ ] PDF transcript/result export
+### UI/UX
+- [ ] React/Next.js frontend to replace EJS templates
+- [ ] Dark mode & mobile-responsive layouts
 - [ ] Admin analytics dashboard (charts, stats)
-- [ ] Timetable/schedule management
-- [ ] Attendance tracking module
-- [ ] Student performance analytics (GPA trend graphs)
+
+### Backend
+- [ ] REST API layer with OpenAPI docs
+- [ ] Refresh token rotation
+- [ ] Rate limiting & security hardening (Helmet.js)
+
+### Features
+- [ ] Email notifications
+- [ ] PDF transcript export
+- [ ] Timetable & attendance tracking
+- [ ] Student GPA trend graphs
 
 ### DevOps
-- [ ] Docker containerization
+- [x] Docker containerization ✅
 - [ ] CI/CD pipeline (GitHub Actions)
-- [ ] Environment-specific configs (dev/staging/prod)
+- [ ] Production deployment guide
 
 ---
 
@@ -238,10 +252,10 @@ The following improvements are planned for the next phase of development:
 
 **Mushfiqur Rahman**
 - Originally developed as a 2nd-year database course project at BUET
-- Stack: Node.js · Express · Oracle DB · Socket.IO · JWT · EJS
+- Stack: Node.js · Express · Oracle DB · Socket.IO · JWT · EJS · Docker
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **ISC License**. See [LICENSE](./LICENSE) for details.
+This project is licensed under the **ISC License**.

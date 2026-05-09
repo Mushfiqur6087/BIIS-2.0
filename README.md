@@ -223,31 +223,6 @@ The Oracle schema contains **18 tables**:
 
 ---
 
-## 🔮 Roadmap
-
-### UI/UX
-- [ ] React/Next.js frontend to replace EJS templates
-- [ ] Dark mode & mobile-responsive layouts
-- [ ] Admin analytics dashboard (charts, stats)
-
-### Backend
-- [ ] REST API layer with OpenAPI docs
-- [ ] Refresh token rotation
-- [ ] Rate limiting & security hardening (Helmet.js)
-
-### Features
-- [ ] Email notifications
-- [ ] PDF transcript export
-- [ ] Timetable & attendance tracking
-- [ ] Student GPA trend graphs
-
-### DevOps
-- [x] Docker containerization ✅
-- [ ] CI/CD pipeline (GitHub Actions)
-- [ ] Production deployment guide
-
----
-
 ## 🧑‍💻 Author
 
 **Mushfiqur Rahman**

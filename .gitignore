@@ -5,6 +5,7 @@ Project/logs/errLog.txt
 Project/logs/reqLog.txt
 backend/node_modules/
 # Docker / environment secrets
+.vscode
 .env
 !.env.example
 

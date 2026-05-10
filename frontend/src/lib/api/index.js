@@ -37,7 +37,8 @@ export const admin = {
   // Courses
   addCourse:         (body)     => apiFetch('/api/admin/courses',       { method: 'POST', body: JSON.stringify(body) }),
   // Course-teacher assignment
-  assignTeacher:     (body)     => apiFetch('/api/admin/assign-course-teacher', { method: 'POST', body: JSON.stringify(body) }),
+  assignTeacher:     (body)     => apiFetch('/api/admin/assign-course-teacher',      { method: 'POST', body: JSON.stringify(body) }),
+  assignTeacherCSV:  (fd)       => apiFetch('/api/admin/assign-course-teacher/csv', { method: 'POST', body: fd }),
   // Registration
   registration:      ()         => apiFetch('/api/admin/registration'),
   setRegistration:   (action)   => apiFetch('/api/admin/registration',  { method: 'POST', body: JSON.stringify({ action }) }),

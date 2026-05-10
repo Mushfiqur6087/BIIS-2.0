@@ -5,18 +5,21 @@
   import DashboardLayout from '$lib/DashboardLayout.svelte';
 
   let form = { Phone1: '', Phone2: '', Email: '', BankNP: '', Address: '', DOB: '', NID: '' };
+  let photoFile = null;
   let loading = true, saving = false, success = false, error = '';
 
   onMount(async () => {
     try {
-      const info = await student.updateInfo({});  // GET via separate endpoint
-      // Actually GET profile via dashboard
-      const data = await student.dashboard();
-      const si = data.studentInfo;
+      // GET fresh data from DB (not stale JWT)
+      const info = await student.getUpdateInfo();
       form = {
-        Phone1: si.phoneNo || '', Phone2: si.phoneNo2 || '',
-        Email: si.email || '', BankNP: si.bankNo || '',
-        Address: si.address || '', DOB: si.dateOfBirth || '', NID: si.nid || '',
+        Phone1: info.phoneNo  || '',
+        Phone2: info.phoneNo2 || '',
+        Email:  info.email    || '',
+        BankNP: info.bankNo   || '',
+        Address:info.address  || '',
+        DOB:    info.dateOfBirth || '',
+        NID:    info.nid      || '',
       };
     } catch (e) { error = e.message; }
     finally { loading = false; }
@@ -26,7 +29,11 @@
     e.preventDefault();
     saving = true; error = ''; success = false;
     try {
-      await student.updateInfo(form);
+      // Use FormData so multer can also receive an optional photo
+      const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+      if (photoFile) fd.append('File', photoFile);
+      await student.updateInfo(fd);
       success = true;
     } catch (err) { error = err.message; }
     finally { saving = false; }
@@ -39,46 +46,30 @@
   <div class="fade-in">
     <div class="page-header">
       <h1>Update Profile</h1>
-      <p>Keep your contact information up to date</p>
+      <p>Keep your contact information and photo up to date</p>
     </div>
 
     {#if loading}
       <div class="flex items-center gap-3"><span class="spinner"></span><span class="text-muted text-sm">Loading…</span></div>
     {:else}
       <div class="form-card card">
-        {#if success}<div class="alert alert-success mb-4">✓ Profile updated!</div>{/if}
+        {#if success}<div class="alert alert-success mb-4">✓ Profile updated successfully!</div>{/if}
         {#if error}<div class="alert alert-error mb-4">{error}</div>{/if}
 
         <form on:submit={save}>
           <div class="grid-2">
-            <div class="form-group">
-              <label for="p1">Phone 1</label>
-              <input id="p1" type="tel" bind:value={form.Phone1} placeholder="+880…" />
-            </div>
-            <div class="form-group">
-              <label for="p2">Phone 2</label>
-              <input id="p2" type="tel" bind:value={form.Phone2} placeholder="+880…" />
-            </div>
-            <div class="form-group">
-              <label for="em">Email</label>
-              <input id="em" type="email" bind:value={form.Email} />
-            </div>
-            <div class="form-group">
-              <label for="bank">Bank Account No.</label>
-              <input id="bank" bind:value={form.BankNP} />
-            </div>
-            <div class="form-group">
-              <label for="dob">Date of Birth</label>
-              <input id="dob" type="date" bind:value={form.DOB} />
-            </div>
-            <div class="form-group">
-              <label for="nid">National ID</label>
-              <input id="nid" bind:value={form.NID} />
-            </div>
+            <div class="form-group"><label for="p1">Phone 1</label><input id="p1" type="tel" bind:value={form.Phone1} placeholder="+880…" /></div>
+            <div class="form-group"><label for="p2">Phone 2</label><input id="p2" type="tel" bind:value={form.Phone2} placeholder="+880…" /></div>
+            <div class="form-group"><label for="em">Email</label><input id="em" type="email" bind:value={form.Email} /></div>
+            <div class="form-group"><label for="bank">Bank Account No.</label><input id="bank" bind:value={form.BankNP} /></div>
+            <div class="form-group"><label for="dob">Date of Birth</label><input id="dob" type="date" bind:value={form.DOB} /></div>
+            <div class="form-group"><label for="nid">National ID</label><input id="nid" bind:value={form.NID} /></div>
           </div>
+          <div class="form-group"><label for="addr">Address</label><textarea id="addr" bind:value={form.Address} rows="2"></textarea></div>
           <div class="form-group">
-            <label for="addr">Address</label>
-            <textarea id="addr" bind:value={form.Address} rows="2"></textarea>
+            <label for="photo">Profile Photo (optional)</label>
+            <input id="photo" type="file" accept="image/*" on:change={e => photoFile = e.target.files[0]} />
+            <p class="hint">Accepted: JPG, PNG. Max 2MB.</p>
           </div>
           <button type="submit" class="btn btn-primary" disabled={saving}>
             {#if saving}<span class="spinner"></span> Saving…{:else}Save Changes{/if}
@@ -89,4 +80,7 @@
   </div>
 </DashboardLayout>
 
-<style>.form-card { max-width: 680px; }</style>
+<style>
+  .form-card { max-width: 680px; }
+  .hint { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.3rem; }
+</style>

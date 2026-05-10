@@ -5,13 +5,19 @@
   import DashboardLayout from '$lib/DashboardLayout.svelte';
 
   let form = { Phone1: '', Phone2: '', Email: '', Address: '' };
+  let photoFile = null;
   let loading = true, saving = false, success = false, error = '';
 
   onMount(async () => {
     try {
-      const data = await teacher.dashboard();
-      const ti = data.teacherInfo;
-      form = { Phone1: ti.phoneNo||'', Phone2: ti.phoneNo2||'', Email: ti.email||'', Address: ti.address||'' };
+      // Fresh data from DB via GET /api/teacher/update-info
+      const info = await teacher.getUpdateInfo();
+      form = {
+        Phone1:  info.phoneNo  || '',
+        Phone2:  info.phoneNo2 || '',
+        Email:   info.email    || '',
+        Address: info.address  || '',
+      };
     } catch (e) { error = e.message; }
     finally { loading = false; }
   });
@@ -20,7 +26,10 @@
     e.preventDefault();
     saving = true; success = false; error = '';
     try {
-      await teacher.updateInfo(form);
+      const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+      if (photoFile) fd.append('File', photoFile);
+      await teacher.updateInfo(fd);
       success = true;
     } catch (err) { error = err.message; }
     finally { saving = false; }
@@ -33,7 +42,7 @@
   <div class="fade-in">
     <div class="page-header">
       <h1>Update Profile</h1>
-      <p>Manage your contact details</p>
+      <p>Manage your contact details and photo</p>
     </div>
     {#if loading}
       <div class="flex items-center gap-3"><span class="spinner"></span></div>
@@ -48,6 +57,11 @@
             <div class="form-group"><label for="tem">Email</label><input id="tem" type="email" bind:value={form.Email} /></div>
           </div>
           <div class="form-group"><label for="taddr">Address</label><textarea id="taddr" bind:value={form.Address} rows="2"></textarea></div>
+          <div class="form-group">
+            <label for="tphoto">Profile Photo (optional)</label>
+            <input id="tphoto" type="file" accept="image/*" on:change={e => photoFile = e.target.files[0]} />
+            <p class="hint">Accepted: JPG, PNG. Max 2MB.</p>
+          </div>
           <button type="submit" class="btn btn-primary" disabled={saving}>
             {#if saving}<span class="spinner"></span> Saving…{:else}Save Changes{/if}
           </button>
@@ -57,4 +71,7 @@
   </div>
 </DashboardLayout>
 
-<style>.form-card { max-width: 580px; }</style>
+<style>
+  .form-card { max-width: 580px; }
+  .hint { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.3rem; }
+</style>

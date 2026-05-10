@@ -2,16 +2,12 @@
 # BIIS 2.0 — Docker Compose
 #
 # Services:
-#   oracle  — Oracle Database Free 23ai (gvenzl/oracle-free)
-#   app     — Node.js / Express application
-#
-# First-run behavior:
-#   The oracle service detects an empty data volume and runs:
-#     docker/oracle-init.sh  → creates BIIS user + loads SQL schema + seed data
-#   Subsequent starts skip init and boot in ~15 seconds.
+#   oracle   — Oracle Database Free 23ai
+#   app      — Express REST API backend  (port 3000)
+#   frontend — SvelteKit frontend        (port 5173 dev / 3001 preview)
 #
 # Usage:
-#   cp .env.example .env        # fill in your secrets
+#   cp .env.example .env
 #   docker compose up --build
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -24,47 +20,37 @@ services:
     restart: unless-stopped
     environment:
       ORACLE_PASSWORD: ${ORACLE_SYS_PASSWORD:-SysOracle#2024}
-      # BIIS_DB_PASS is a custom name — avoids triggering gvenzl's built-in
-      # user-creation logic (which requires APP_USER + APP_USER_PASSWORD together).
-      # oracle-init.sh reads this variable to create the BIIS schema user.
       BIIS_DB_PASS: ${DB_PASS:-BiisPass#2024}
     ports:
-      - "1521:1521"         # expose for local SQL clients (optional)
+      - "1521:1521"
     volumes:
-      # Persist DB data across container restarts
       - oracle_data:/opt/oracle/oradata
-      # Init scripts — only run on very first startup (empty volume)
       - ./docker/oracle-init.sh:/container-entrypoint-initdb.d/oracle-init.sh:ro
-      # SQL files mounted to a neutral path — only oracle-init.sh runs them.
-      # DO NOT mount to /docker-entrypoint-initdb.d/ as gvenzl auto-executes
-      # everything there, which would DROP+recreate tables and wipe seed data.
-      - ./Project/ProjectEssentials/Database/BIIS_STRUCTURE.sql:/opt/biis/sql/BIIS_STRUCTURE.sql:ro
-      # Individual per-table seed data files (real INSERT data):
-      - ./Project/ProjectEssentials/Database/DEPARTMENT.sql:/opt/biis/sql/DEPARTMENT.sql:ro
-      - ./Project/ProjectEssentials/Database/DUES.sql:/opt/biis/sql/DUES.sql:ro
-      - ./Project/ProjectEssentials/Database/SCHOLARSHIP.sql:/opt/biis/sql/SCHOLARSHIP.sql:ro
-      - ./Project/ProjectEssentials/Database/STUDENT.sql:/opt/biis/sql/STUDENT.sql:ro
-      - ./Project/ProjectEssentials/Database/TEACHER.sql:/opt/biis/sql/TEACHER.sql:ro
-      - ./Project/ProjectEssentials/Database/COURSE.sql:/opt/biis/sql/COURSE.sql:ro
-      - ./Project/ProjectEssentials/Database/USER_TABLE.sql:/opt/biis/sql/USER_TABLE.sql:ro
-      - ./Project/ProjectEssentials/Database/ADVISOR.sql:/opt/biis/sql/ADVISOR.sql:ro
-      - ./Project/ProjectEssentials/Database/ENROLLMENT.sql:/opt/biis/sql/ENROLLMENT.sql:ro
-      - ./Project/ProjectEssentials/Database/REGISTRATION.sql:/opt/biis/sql/REGISTRATION.sql:ro
-      - ./Project/ProjectEssentials/Database/RESULT.sql:/opt/biis/sql/RESULT.sql:ro
-      - ./Project/ProjectEssentials/Database/TEACHES.sql:/opt/biis/sql/TEACHES.sql:ro
-      - ./Project/ProjectEssentials/Database/NOTIFICATION.sql:/opt/biis/sql/NOTIFICATION.sql:ro
-      - ./Project/ProjectEssentials/Database/STUDENT_DUES.sql:/opt/biis/sql/STUDENT_DUES.sql:ro
-      - ./Project/ProjectEssentials/Database/STUDENT_SCHOLARSHIP.sql:/opt/biis/sql/STUDENT_SCHOLARSHIP.sql:ro
-      - ./Project/ProjectEssentials/Database/ADMIN_LOGS.sql:/opt/biis/sql/ADMIN_LOGS.sql:ro
+      - ./backend/ProjectEssentials/Database/BIIS_STRUCTURE.sql:/opt/biis/sql/BIIS_STRUCTURE.sql:ro
+      - ./backend/ProjectEssentials/Database/DEPARTMENT.sql:/opt/biis/sql/DEPARTMENT.sql:ro
+      - ./backend/ProjectEssentials/Database/DUES.sql:/opt/biis/sql/DUES.sql:ro
+      - ./backend/ProjectEssentials/Database/SCHOLARSHIP.sql:/opt/biis/sql/SCHOLARSHIP.sql:ro
+      - ./backend/ProjectEssentials/Database/STUDENT.sql:/opt/biis/sql/STUDENT.sql:ro
+      - ./backend/ProjectEssentials/Database/TEACHER.sql:/opt/biis/sql/TEACHER.sql:ro
+      - ./backend/ProjectEssentials/Database/COURSE.sql:/opt/biis/sql/COURSE.sql:ro
+      - ./backend/ProjectEssentials/Database/USER_TABLE.sql:/opt/biis/sql/USER_TABLE.sql:ro
+      - ./backend/ProjectEssentials/Database/ADVISOR.sql:/opt/biis/sql/ADVISOR.sql:ro
+      - ./backend/ProjectEssentials/Database/ENROLLMENT.sql:/opt/biis/sql/ENROLLMENT.sql:ro
+      - ./backend/ProjectEssentials/Database/REGISTRATION.sql:/opt/biis/sql/REGISTRATION.sql:ro
+      - ./backend/ProjectEssentials/Database/RESULT.sql:/opt/biis/sql/RESULT.sql:ro
+      - ./backend/ProjectEssentials/Database/TEACHES.sql:/opt/biis/sql/TEACHES.sql:ro
+      - ./backend/ProjectEssentials/Database/NOTIFICATION.sql:/opt/biis/sql/NOTIFICATION.sql:ro
+      - ./backend/ProjectEssentials/Database/STUDENT_DUES.sql:/opt/biis/sql/STUDENT_DUES.sql:ro
+      - ./backend/ProjectEssentials/Database/STUDENT_SCHOLARSHIP.sql:/opt/biis/sql/STUDENT_SCHOLARSHIP.sql:ro
+      - ./backend/ProjectEssentials/Database/ADMIN_LOGS.sql:/opt/biis/sql/ADMIN_LOGS.sql:ro
     healthcheck:
-      # gvenzl images ship with a built-in healthcheck.sh
       test: ["CMD", "healthcheck.sh"]
       interval: 30s
       timeout: 20s
-      retries: 25          # Oracle Free can take up to ~3 min on first boot
+      retries: 25
       start_period: 90s
 
-  # ── Node.js Application ───────────────────────────────────────────────────
+  # ── Express REST API Backend ──────────────────────────────────────────────
   app:
     build:
       context: .
@@ -76,22 +62,33 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: 3000
-      # DB credentials — must match what oracle-init.sh created
       DB_USER: BIIS
       DB_PASS: ${DB_PASS:-BiisPass#2024}
-      # oracledb Thin mode Easy Connect string
       DB_CONNECTION: oracle:1521/FREEPDB1
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required — set it in .env}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
     depends_on:
       oracle:
-        condition: service_healthy   # waits until Oracle passes its health check
+        condition: service_healthy
     volumes:
-      # Persist uploaded images and generated PDFs
-      - ./Project/public/img:/app/public/img
-      - ./Project/docs:/app/docs
-      - ./Project/logs:/app/logs
-      # Make CSV upload directory accessible
-      - ./Project/ProjectEssentials/CSV:/app/ProjectEssentials/CSV
+      - ./backend/public/img:/app/public/img
+      - ./backend/docs:/app/docs
+      - ./backend/logs:/app/logs
+      - ./backend/ProjectEssentials/CSV:/app/ProjectEssentials/CSV
+
+  # ── SvelteKit Frontend ────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: biis-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:3000"
+    environment:
+      ORIGIN: ${FRONTEND_URL:-http://localhost:5173}
+    depends_on:
+      - app
 
 volumes:
   oracle_data:

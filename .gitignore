@@ -3,7 +3,7 @@ Project/node_modules/
 Project/.env
 Project/logs/errLog.txt
 Project/logs/reqLog.txt
-
+backend/node_modules/
 # Docker / environment secrets
 .env
 !.env.example

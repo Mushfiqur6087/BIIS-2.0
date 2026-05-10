@@ -1,7 +1,6 @@
 const database = require("./database");
 
-function getCurrentOracleTimestamp() 
-{
+function getCurrentOracleTimestamp() {
   const currentTime = new Date();
   const year = currentTime.getFullYear();
   const month = String(currentTime.getMonth() + 1).padStart(2, "0");
@@ -14,11 +13,7 @@ function getCurrentOracleTimestamp()
   return oracleTimestamp + '000000';
 }
 
-
-
-
-function getCurrentOracleTimestamp5secBefore() 
-{
+function getCurrentOracleTimestamp5secBefore() {
   const currentTime = new Date();
   currentTime.setTime(currentTime.getTime() - 5000);
   const year = currentTime.getFullYear();
@@ -33,47 +28,42 @@ function getCurrentOracleTimestamp5secBefore()
 }
 
 async function notificationUpdate() {
-  //!await database.startup();
-  const b = getCurrentOracleTimestamp();
-  const a = getCurrentOracleTimestamp5secBefore();
- // console.log(a);
+  try {
+    const b = getCurrentOracleTimestamp();
+    const a = getCurrentOracleTimestamp5secBefore();
 
-  const sql =
-  `
-  SELECT *
-  FROM ADMIN_LOGS
-  WHERE "CURRENT_DATE" BETWEEN TO_TIMESTAMP(:a, 'YYYY-MM-DD HH24:MI:SS.FF') 
-  AND TO_TIMESTAMP(:b, 'YYYY-MM-DD HH24:MI:SS.FF')
-`
-;
-  const binds = {a,b};
-
-  return (( await database.execute(sql, binds)).rows);
-  //return (await database.execute(sql, binds)).rows;
+    const sql = `
+      SELECT *
+      FROM ADMIN_LOGS
+      WHERE "CURRENT_DATE" BETWEEN TO_TIMESTAMP(:a, 'YYYY-MM-DD HH24:MI:SS.FF') 
+      AND TO_TIMESTAMP(:b, 'YYYY-MM-DD HH24:MI:SS.FF')
+    `;
+    const binds = { a, b };
+    return (await database.execute(sql, binds)).rows;
+  } catch (err) {
+    console.error('ERROR in notificationUpdate:', err.message);
+    return [];
+  }
 }
-
 
 async function notificationUpdateStudentTeacher() {
-  
-  const b = getCurrentOracleTimestamp();
-  const a = getCurrentOracleTimestamp5secBefore();
- // console.log(a);
+  try {
+    const b = getCurrentOracleTimestamp();
+    const a = getCurrentOracleTimestamp5secBefore();
 
-  const sql =
-  `
-  SELECT *
-  FROM NOTIFICATION
-  WHERE "CURRENT_DATE" BETWEEN TO_TIMESTAMP(:a, 'YYYY-MM-DD HH24:MI:SS.FF') 
-  AND TO_TIMESTAMP(:b, 'YYYY-MM-DD HH24:MI:SS.FF')
-`
-;
-  const binds = {a,b};
-
-  const r= (( await database.execute(sql, binds)).rows);
-  console.log('inside query',r);
-  return r;
-  //return (await database.execute(sql, binds)).rows;
+    const sql = `
+      SELECT *
+      FROM NOTIFICATION
+      WHERE "CURRENT_DATE" BETWEEN TO_TIMESTAMP(:a, 'YYYY-MM-DD HH24:MI:SS.FF') 
+      AND TO_TIMESTAMP(:b, 'YYYY-MM-DD HH24:MI:SS.FF')
+    `;
+    const binds = { a, b };
+    const r = (await database.execute(sql, binds)).rows;
+    return r;
+  } catch (err) {
+    console.error('ERROR in notificationUpdateStudentTeacher:', err.message);
+    return [];
+  }
 }
 
-//notificationUpdate();
-module.exports={notificationUpdate,notificationUpdateStudentTeacher};
+module.exports = { notificationUpdate, notificationUpdateStudentTeacher };

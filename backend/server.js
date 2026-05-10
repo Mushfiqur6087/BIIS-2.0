@@ -23,18 +23,21 @@ const app  = express();
 // ── Logging ──────────────────────────────────────────────────────────────────
 app.use(logger);
 
-// ── CORS — allow SvelteKit dev server and production frontend ─────────────────
+// ── CORS — allow SvelteKit dev server and production frontend (nginx) ────────
 const allowedOrigins = [
+  'http://localhost',           // nginx reverse-proxy (docker compose up)
+  'http://localhost:80',
   process.env.FRONTEND_URL || 'http://localhost:5173',
-  'http://localhost:4173',  // SvelteKit preview
+  'http://localhost:5173',      // Vite dev server
+  'http://localhost:4173',      // SvelteKit preview
 ];
 app.use(cors({
   origin: (origin, cb) => {
-    // allow requests with no origin (curl, Postman) or matching list
+    // allow requests with no origin (curl, Postman, server-side) or matching list
     if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
     cb(new Error(`CORS: origin ${origin} not allowed`));
   },
-  credentials: true,   // allow cookies
+  credentials: true,   // allow cookies (JWT)
 }));
 
 // ── Body parsers ──────────────────────────────────────────────────────────────

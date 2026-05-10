@@ -1,13 +1,28 @@
-Project/.vscode
-Project/node_modules/
-Project/.env
-Project/logs/errLog.txt
-Project/logs/reqLog.txt
-backend/node_modules/
-# Docker / environment secrets
+# ── IDE ──────────────────────────────────────────────────────
 .vscode
+.idea
+
+# ── Environment secrets ───────────────────────────────────────
 .env
 !.env.example
 
-# Docker runtime
+# ── Node deps ─────────────────────────────────────────────────
+node_modules/
+Project/node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# ── Logs ─────────────────────────────────────────────────────
+Project/logs/
+backend/logs/
+
+# ── SvelteKit build artifacts ─────────────────────────────────
+frontend/.svelte-kit/
+frontend/build/
+
+# ── Docker runtime ─────────────────────────────────────────────
 docker/oracle-init-done
+
+# ── OS artifacts ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db

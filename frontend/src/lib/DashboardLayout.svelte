@@ -1,52 +1,68 @@
 <script>
-  export let role = 'admin';  // 'admin' | 'student' | 'teacher'
+  export let role = 'admin';
   export let userID = '';
 
   import { goto } from '$app/navigation';
-  import { page } from '$app/stores';
+  import { page, navigating } from '$app/stores';
   import { logout } from '$lib/stores/auth.js';
 
   const navItems = {
     admin: [
-      { href: '/admin',                    icon: '◈', label: 'Dashboard' },
-      { href: '/admin/students',           icon: '🎓', label: 'Students' },
-      { href: '/admin/teachers',           icon: '👨‍🏫', label: 'Teachers' },
-      { href: '/admin/courses',            icon: '📚', label: 'Courses' },
-      { href: '/admin/assign',             icon: '🔗', label: 'Assign Teachers' },
-      { href: '/admin/dues',               icon: '💳', label: 'Dues' },
-      { href: '/admin/scholarships',       icon: '🏆', label: 'Scholarships' },
-      { href: '/admin/registration',       icon: '📝', label: 'Registration' },
-      { href: '/admin/promote',            icon: '⬆️', label: 'Promote Students' },
-      { href: '/admin/notifications',      icon: '🔔', label: 'Notifications' },
+      { href: '/admin',               icon: '◈',  label: 'Dashboard' },
+      { href: '/admin/students',      icon: '🎓', label: 'Students' },
+      { href: '/admin/teachers',      icon: '👨‍🏫', label: 'Teachers' },
+      { href: '/admin/courses',       icon: '📚', label: 'Courses' },
+      { href: '/admin/assign',        icon: '🔗', label: 'Assign Teachers' },
+      { href: '/admin/dues',          icon: '💳', label: 'Dues' },
+      { href: '/admin/scholarships',  icon: '🏆', label: 'Scholarships' },
+      { href: '/admin/registration',  icon: '📝', label: 'Registration' },
+      { href: '/admin/promote',       icon: '⬆️', label: 'Promote Students' },
+      { href: '/admin/notifications', icon: '🔔', label: 'Notifications' },
     ],
     student: [
-      { href: '/student',                  icon: '◈', label: 'Dashboard' },
-      { href: '/student/courses',          icon: '📚', label: 'Courses' },
-      { href: '/student/results',          icon: '📊', label: 'Results' },
-      { href: '/student/dues',             icon: '💳', label: 'Dues' },
-      { href: '/student/advisor',          icon: '👨‍🏫', label: 'My Advisor' },
-      { href: '/student/scholarship',      icon: '🏆', label: 'Scholarship' },
-      { href: '/student/profile',          icon: '👤', label: 'Update Profile' },
-      { href: '/student/notifications',    icon: '🔔', label: 'Notifications' },
+      { href: '/student',                icon: '◈',  label: 'Dashboard' },
+      { href: '/student/courses',        icon: '📚', label: 'Courses' },
+      { href: '/student/results',        icon: '📊', label: 'Results' },
+      { href: '/student/dues',           icon: '💳', label: 'Dues' },
+      { href: '/student/advisor',        icon: '👨‍🏫', label: 'My Advisor' },
+      { href: '/student/scholarship',    icon: '🏆', label: 'Scholarship' },
+      { href: '/student/profile',        icon: '👤', label: 'Update Profile' },
+      { href: '/student/notifications',  icon: '🔔', label: 'Notifications' },
     ],
     teacher: [
-      { href: '/teacher',                  icon: '◈', label: 'Dashboard' },
-      { href: '/teacher/courses',          icon: '📚', label: 'Approve Courses' },
-      { href: '/teacher/grades',           icon: '📝', label: 'Assign Grades' },
-      { href: '/teacher/scholarship',      icon: '🏆', label: 'Scholarship' },
-      { href: '/teacher/profile',          icon: '👤', label: 'Update Profile' },
-      { href: '/teacher/notifications',    icon: '🔔', label: 'Notifications' },
+      { href: '/teacher',                icon: '◈',  label: 'Dashboard' },
+      { href: '/teacher/courses',        icon: '📚', label: 'Approve Courses' },
+      { href: '/teacher/grades',         icon: '📝', label: 'Assign Grades' },
+      { href: '/teacher/scholarship',    icon: '🏆', label: 'Scholarship' },
+      { href: '/teacher/profile',        icon: '👤', label: 'Update Profile' },
+      { href: '/teacher/notifications',  icon: '🔔', label: 'Notifications' },
     ],
   };
 
   const accentMap = { admin: '#7c3aed', student: '#0ea5e9', teacher: '#10b981' };
-  const labelMap  = { admin: 'Admin', student: 'Student', teacher: 'Teacher' };
+  const labelMap  = { admin: 'Admin',   student: 'Student', teacher: 'Teacher' };
+
+  // Active route: match exact OR prefix (for /admin/students/[id] etc.)
+  function isActive(href) {
+    const path = $page.url.pathname;
+    if (href.endsWith('/admin') || href.endsWith('/student') || href.endsWith('/teacher')) {
+      return path === href;
+    }
+    return path === href || path.startsWith(href + '/');
+  }
 
   async function handleLogout() {
     await logout();
     goto('/');
   }
 </script>
+
+<!-- Global navigation progress bar -->
+{#if $navigating}
+  <div class="nav-progress" aria-hidden="true">
+    <div class="nav-bar"></div>
+  </div>
+{/if}
 
 <div class="layout" style="--accent:{accentMap[role]}; --accent-dim:{accentMap[role]}26; --accent-glow:{accentMap[role]}66;">
   <!-- Sidebar -->
@@ -64,7 +80,7 @@
         <a
           href={item.href}
           class="nav-item"
-          class:active={$page.url.pathname === item.href}
+          class:active={isActive(item.href)}
         >
           <span class="nav-icon">{item.icon}</span>
           <span>{item.label}</span>
@@ -74,7 +90,7 @@
 
     <div class="sidebar-footer">
       <div class="user-info">
-        <div class="avatar">{userID}</div>
+        <div class="avatar">{String(userID).slice(-2)}</div>
         <div>
           <div class="user-id">ID: {userID}</div>
           <div class="user-role">{labelMap[role]}</div>
@@ -93,6 +109,25 @@
 </div>
 
 <style>
+  /* ── Progress bar ───────────────────────────────── */
+  .nav-progress {
+    position: fixed; top: 0; left: 0; right: 0;
+    height: 2px; z-index: 9999;
+    background: rgba(255,255,255,0.05);
+  }
+  .nav-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #06b6d4);
+    animation: progress 1.2s ease-in-out infinite;
+    transform-origin: left;
+    box-shadow: 0 0 8px var(--accent-glow);
+  }
+  @keyframes progress {
+    0%   { transform: scaleX(0);   margin-left: 0; }
+    50%  { transform: scaleX(0.7); margin-left: 0; }
+    100% { transform: scaleX(0);   margin-left: 100%; }
+  }
+
   .layout {
     display: flex; min-height: 100vh;
     background: var(--bg-deep);

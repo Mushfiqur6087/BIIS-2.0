@@ -7,6 +7,10 @@
   let teacherList = [], departmentList = [], loading = true, search = '', selectedDept = '', error = '';
   let confirmDelete = null, deleting = false;
 
+  // Pagination
+  const PAGE_SIZE = 20;
+  let currentPage = 1;
+
   onMount(async () => {
     try { ({ teacherList, departmentList } = await admin.teachers()); }
     catch (e) { error = e.message; }
@@ -20,6 +24,15 @@
     const matchDept = !selectedDept || t.DEPT_ID === selectedDept;
     return matchSearch && matchDept;
   });
+
+  $: { filtered; currentPage = 1; }
+  $: totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  $: paginated  = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  function prevPage() { if (currentPage > 1) currentPage--; }
+  function nextPage() { if (currentPage < totalPages) currentPage++; }
+
+
 
   async function doDelete(id) {
     deleting = true;
@@ -54,7 +67,7 @@
           <option value={d.DEPT_ID}>{d.DEPT_NAME}</option>
         {/each}
       </select>
-      <span class="text-muted text-sm">{filtered.length} teachers</span>
+      <span class="text-muted text-sm">{filtered.length} teacher{filtered.length !== 1 ? 's' : ''}</span>
     </div>
 
     {#if loading}
@@ -67,7 +80,7 @@
               <tr><th>ID</th><th>Name</th><th>Dept</th><th>Rank</th><th>Email</th><th>Salary</th><th>Actions</th></tr>
             </thead>
             <tbody>
-              {#each filtered as t}
+              {#each paginated as t}
                 <tr>
                   <td><span class="badge badge-accent">{t.TEACHER_ID}</span></td>
                   <td class="font-medium">{t.FIRSTNAME} {t.LASTNAME}</td>
@@ -88,6 +101,15 @@
             </tbody>
           </table>
         </div>
+
+        <!-- Pagination -->
+        {#if totalPages > 1}
+          <div class="pagination">
+            <button class="page-btn" disabled={currentPage === 1} on:click={prevPage}>← Prev</button>
+            <div class="page-info">Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> <span class="text-muted"> · {filtered.length} total</span></div>
+            <button class="page-btn" disabled={currentPage === totalPages} on:click={nextPage}>Next →</button>
+          </div>
+        {/if}
       </div>
     {/if}
   </div>
@@ -111,6 +133,11 @@
 <style>
   .filters { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
   .filters .input { flex: 1; min-width: 200px; }
+  .pagination { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-top: 1px solid var(--glass-border); flex-wrap: wrap; gap: 0.75rem; }
+  .page-btn { padding: 0.45rem 1rem; border-radius: var(--radius-sm); background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all var(--transition); }
+  .page-btn:hover:not(:disabled) { background: var(--glass-hover); color: var(--text-primary); }
+  .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .page-info { font-size: 0.85rem; color: var(--text-secondary); }
   .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; }
   .modal { background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 2rem; width: min(420px, calc(100vw - 2rem)); box-shadow: 0 8px 64px rgba(0,0,0,0.5); }
   .modal h3 { font-size: 1.1rem; font-weight: 700; }

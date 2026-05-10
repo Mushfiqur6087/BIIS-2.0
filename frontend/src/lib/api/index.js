@@ -7,6 +7,11 @@ async function apiFetch(url, opts = {}) {
     headers: isFormData ? {} : { 'Content-Type': 'application/json', ...(opts.headers || {}) },
     ...opts,
   });
+  // Session expired — redirect to login
+  if (res.status === 401) {
+    if (typeof window !== 'undefined') window.location.href = '/';
+    return;
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(data.message || data.error || 'Request failed'), { status: res.status, data });
   return data;

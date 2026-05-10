@@ -8,6 +8,10 @@
   let confirmDelete = null;
   let deleting = false;
 
+  // Pagination
+  const PAGE_SIZE = 20;
+  let currentPage = 1;
+
   onMount(async () => {
     try { ({ studentList, departmentList } = await admin.students()); }
     catch (e) { error = e.message; }
@@ -22,6 +26,15 @@
     const matchDept = !selectedDept || s.DEPT_ID === selectedDept;
     return matchSearch && matchDept;
   });
+
+  // Reset to page 1 when filters change
+  $: { filtered; currentPage = 1; }
+
+  $: totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  $: paginated  = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  function prevPage() { if (currentPage > 1) currentPage--; }
+  function nextPage() { if (currentPage < totalPages) currentPage++; }
 
   async function doDelete(id) {
     deleting = true;
@@ -51,14 +64,14 @@
 
     <!-- Filters -->
     <div class="filters card mb-4">
-      <input class="input" placeholder="Search by name or ID…" bind:value={search} />
+      <input class="input" placeholder="Search by name, ID, or dept…" bind:value={search} />
       <select bind:value={selectedDept}>
         <option value="">All Departments</option>
         {#each departmentList as d}
-          <option value={d.DEPT_ID}>{d.DEPT_NAME} ({d.DEPT_ID})</option>
+          <option value={d.DEPT_ID ?? d.DEPARTMENT_ID}>{d.DEPT_NAME ?? d.DEPARTMENT_NAME ?? d.DEPT_ID} ({d.DEPT_ID ?? d.DEPARTMENT_ID})</option>
         {/each}
       </select>
-      <span class="text-muted text-sm">{filtered.length} students</span>
+      <span class="text-muted text-sm">{filtered.length} student{filtered.length !== 1 ? 's' : ''}</span>
     </div>
 
     {#if loading}
@@ -73,14 +86,14 @@
               </tr>
             </thead>
             <tbody>
-              {#each filtered as s}
+              {#each paginated as s}
                 <tr>
                   <td><span class="badge badge-accent">{s.STUDENT_ID}</span></td>
                   <td class="font-medium">{s.FIRST_NAME} {s.LAST_NAME}</td>
                   <td>{s.DEPT_ID}</td>
                   <td>{s.LEVEL ?? '—'} / {s.TERM ?? '—'}</td>
-                  <td>{s.HALL ?? '—'}</td>
-                  <td class="text-muted">{s.EMAIL ?? '—'}</td>
+                  <td class="text-muted text-sm">{s.HALL ?? '—'}</td>
+                  <td class="text-muted text-sm">{s.EMAIL ?? '—'}</td>
                   <td>
                     <div class="flex gap-2">
                       <a href="/admin/students/{s.STUDENT_ID}" class="btn btn-ghost btn-sm">View</a>
@@ -94,6 +107,18 @@
             </tbody>
           </table>
         </div>
+
+        <!-- Pagination -->
+        {#if totalPages > 1}
+          <div class="pagination">
+            <button class="page-btn" disabled={currentPage === 1} on:click={prevPage}>← Prev</button>
+            <div class="page-info">
+              Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
+              <span class="text-muted"> · {filtered.length} total</span>
+            </div>
+            <button class="page-btn" disabled={currentPage === totalPages} on:click={nextPage}>Next →</button>
+          </div>
+        {/if}
       </div>
     {/if}
   </div>
@@ -103,10 +128,14 @@
     <div class="modal-backdrop" on:click={() => confirmDelete = null} role="presentation">
       <div class="modal" on:click|stopPropagation role="dialog">
         <h3>Delete Student?</h3>
-        <p class="text-muted text-sm mt-2">This will permanently remove <strong>{confirmDelete.FIRST_NAME} {confirmDelete.LAST_NAME}</strong> (ID: {confirmDelete.STUDENT_ID}) from the system. This cannot be undone.</p>
+        <p class="text-muted text-sm mt-2">
+          This will permanently remove <strong>{confirmDelete.FIRST_NAME} {confirmDelete.LAST_NAME}</strong>
+          (ID: {confirmDelete.STUDENT_ID}) from the system. This cannot be undone.
+        </p>
         <div class="flex gap-3 mt-6">
           <button class="btn btn-ghost flex-1" on:click={() => confirmDelete = null}>Cancel</button>
-          <button class="btn btn-danger flex-1" disabled={deleting} on:click={() => doDelete(confirmDelete.STUDENT_ID)}>
+          <button class="btn btn-danger flex-1" disabled={deleting}
+            on:click={() => doDelete(confirmDelete.STUDENT_ID)}>
             {deleting ? 'Deleting…' : 'Delete'}
           </button>
         </div>
@@ -119,6 +148,26 @@
   .filters { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
   .filters .input { flex: 1; min-width: 200px; }
   select { flex: 0 0 auto; }
+
+  /* Pagination */
+  .pagination {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--glass-border);
+    flex-wrap: wrap; gap: 0.75rem;
+  }
+  .page-btn {
+    padding: 0.45rem 1rem;
+    border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+    font-size: 0.8rem; font-weight: 600;
+    cursor: pointer; transition: all var(--transition);
+  }
+  .page-btn:hover:not(:disabled) { background: var(--glass-hover); color: var(--text-primary); }
+  .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .page-info { font-size: 0.85rem; color: var(--text-secondary); }
 
   .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; }
   .modal { background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 2rem; width: min(420px, calc(100vw - 2rem)); box-shadow: 0 8px 64px rgba(0,0,0,0.5); }
